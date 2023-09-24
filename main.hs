@@ -2,26 +2,55 @@
 import PA1Helper
 import System.Environment
 
+-- given helper function freevars is used to extract free variables from lambda expression
+freevars :: Lexp -> [String]
+freevars (Atom s) = [s]
+freevars (Lambda v e) = remove v (freevars e)
+freevars (Apply e1 e2) = freevars e1 ++ freevars e2
 
--- return a list of expressions. 
-allVariables :: Lexp -> [Lexp]
-allVariables v@(Atom _) = [v]
-allVariables lexp@(Lambda x expr) = allVariables expr
-allVariables (Apply expr1 expr2) = allVariables expr1 ++ allVariables expr2
+-- given helper function remove as filter application using infix notation for /=
+remove :: (Eq a) => a -> [a] -> [a]
+remove x = filter (/= x)
 
-remove :: (Eq a) => [a] -> a -> [a]
-remove [] _ = []
-remove list@(h:t) x
-    | x == h = remove t x
-    | otherwise = h: remove t x
+-- helper function for alphaRename will start at candidate 'z' and increment 
+-- until it finds the next unused variable
+getFreeVar :: String -> [String] -> String
+getFreeVar _ = findUnusedVar 'z'
 
-findFreeVariables :: Lexp -> [Lexp]
-findFreeVariables v@(Atom _) = [v]
-findFreeVariables lexp@(Lambda x expr) = findFreeVariables expr `remove` Atom x
-findFreeVariables lexp@(Apply expr1 expr2) = findFreeVariables expr1 ++ findFreeVariables expr2
+-- helper function takes in a candidate variable and list of used variables
+-- if var in usedVars: recursively calls itself with next alphabetical character
+-- if var not in usedVars: returns var 
+findUnusedVar :: Char -> [String] -> String
+findUnusedVar var usedVars
+  | [var] `elem` usedVars = findUnusedVar (nextChar var) usedVars
+  | otherwise = [var]
 
+-- Helper function to get the next character in the alphabet starting from z
+-- then wraps around to 'a'
+nextChar :: Char -> Char
+nextChar c
+  | c == 'z' = 'a'
+  | otherwise = succ c
+
+-- helper function will replace all occurence of oldVar with newVar in provided Lexp
+replaceVar :: String -> String -> Lexp -> Lexp
+replaceVar oldVar newVar (Atom lexp)
+   | lexp == oldVar = Atom newVar
+   | otherwise = Atom lexp
+replaceVar oldVar newVar (Lambda var body)
+  | var == oldVar = Lambda newVar (replaceVar oldVar newVar body)
+  | otherwise = Lambda var (replaceVar oldVar newVar body)
+replaceVar oldVar newVar (Apply expr1 expr2) =
+   Apply (replaceVar oldVar newVar expr1) (replaceVar oldVar newVar expr2)
+  
+-- alpha renaming
+-- 
 alphaRename :: Lexp -> [String] -> Lexp
-alphaRename v@(Atom _)_ = v
+alphaRename (Lambda var body) usedVars = 
+      Lambda (getFreeVar var usedVars) . replaceVar var unusedVar $ body
+   where 
+      unusedVar = getFreeVar var usedVars
+alphaRename lexp _ = lexp
 
 
 -- beta reduction
@@ -49,8 +78,9 @@ betaReduce lexp@(Apply expr1 expr2) =
 etaConvert :: Lexp -> Lexp
 -- etaConvert v@(Atom _) = v
 etaConvert (Lambda x (Apply f (Atom y))) = 
-    if x == y && not (x `elem` (map (\(Atom x) -> x) (findFreeVariables f))) 
-        then etaConvert f
+   --  if x == y && not (x `elem` (map (\(Atom x) -> x) (findFreeVariables f))) 
+   if x == y && notElem x (freevars f)     
+      then etaConvert f
         else Lambda x (Apply (etaConvert f) (Atom y))
 etaConvert (Apply expr1 expr2) = Apply (etaConvert expr1) (etaConvert expr2)
 etaConvert (Lambda x expr) = Lambda x (etaConvert expr)
