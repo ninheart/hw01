@@ -1,10 +1,6 @@
-{-# LANGUAGE BlockArguments #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Used otherwise as a pattern" #-}
 
 import PA1Helper
 import System.Environment
-import Data.Time.Format.ISO8601 (yearFormat)
 
 -- given helper function freevars is used to extract free variables from lambda expression
 freevars :: Lexp -> [String]
@@ -45,6 +41,9 @@ alphaRename (Lambda var body) usedVars =
 alphaRename lexp _ = lexp
 
 -- eta conversion
+--    For variables no eta conversion is done
+--    For application you eta convert both the first and second LC expressions
+--    For abstraction of application you convert using the defintion of Eta conversion
 etaConvert :: Lexp -> Lexp
 etaConvert (Lambda x (Apply f (Atom y))) =
    if x == y && notElem x (freevars f)
@@ -79,6 +78,7 @@ beta x1 y1 f@(Lambda x2 y2) =
             | otherwise -> f
 
 -- check if the expression is in its simple form
+-- if it is, return it, otherwise reduce it
 simplifier :: Lexp -> Lexp -> Lexp
 simplifier x y = 
    if x == y 
