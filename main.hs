@@ -16,25 +16,11 @@ freevars (Apply e1 e2) = freevars e1 ++ freevars e2
 remove :: (Eq a) => a -> [a] -> [a]
 remove x = filter (/= x)
 
--- helper function for alphaRename will start at candidate 'z' and increment 
--- until it finds the next unused variable
+-- helper function to get a free variable that is not in the list of used variables
 getFreeVar :: String -> [String] -> String
-getFreeVar _ = findUnusedVar 'z'
-
--- helper function takes in a candidate variable and list of used variables
--- if var in usedVars: recursively calls itself with next alphabetical character
--- if var not in usedVars: returns var 
-findUnusedVar :: Char -> [String] -> String
-findUnusedVar var usedVars
-   | [var] `elem` usedVars = findUnusedVar (nextChar var) usedVars
-   | otherwise = [var]
-
--- Helper function to get the next character in the alphabet starting from z
--- then wraps around to 'a'
-nextChar :: Char -> Char
-nextChar c
-   | c == 'z' = 'a'
-   | otherwise = succ c
+getFreeVar var usedVars =
+  let allVars = [c : n | n <- "" : map show [1 ..], c <- ['z', 'a' .. 'z']]
+   in head [unusedVar | unusedVar <- allVars, unusedVar `notElem` (var : usedVars)]
 
 -- helper function will replace all occurence of oldVar with newVar in provided Lexp
 replaceVar :: String -> String -> Lexp -> Lexp
@@ -48,7 +34,9 @@ replaceVar oldVar newVar (Apply expr1 expr2) =
     Apply (replaceVar oldVar newVar expr1) (replaceVar oldVar newVar expr2)
 
 -- alpha renaming
--- 
+-- if a Lamda expression, it creates a new Lamda expression 
+-- takes in a lexp and list of usedVars and creates a (Lambda var body) 
+-- where var is calculated with (getFreeVar var usedVars) and body is (replaceVar var unusedVar)
 alphaRename :: Lexp -> [String] -> Lexp
 alphaRename (Lambda var body) usedVars =
          Lambda (getFreeVar var usedVars) . replaceVar var unusedVar $ body
